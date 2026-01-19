@@ -1,0 +1,52 @@
+#!/bin/sh
+# 企业级 Git 提交信息校验钩子
+# 遵循 Angular 规范，适配原生 JS 项目
+# 解决中文/空格兼容问题
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+# 读取提交信息文件
+COMMIT_MSG_FILE=$1
+# 用 tr 替换全角空格为半角，再去首尾空白
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE" | tr '　' ' ' | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
+
+# 定义双规范的正则表达式（满足其一即可通过）
+# 规范1：公司需求编号格式（数字：描述）【注意：这里是中文冒号】
+RULE1="^[0-9]+：.{1,100}$"
+# 规范2：Angular 类型格式（修复 ? 的兼容问题，用 [ ]? 替代）
+VALID_TYPES="feat|fix|docs|style|refactor|test|chore|perf|revert"
+# [ ]? 表示“0 或 1 个半角空格”，兼容 test:xxx 和 test: xxx
+RULE2="^($VALID_TYPES):[ ]?.+$"
+
+# 校验逻辑（用 grep -E 确保扩展正则生效）
+MATCH_RULE1=$(echo "$COMMIT_MSG" | grep -E "$RULE1")
+MATCH_RULE2=$(echo "$COMMIT_MSG" | grep -E "$RULE2")
+
+if [ -z "$MATCH_RULE1" ] && [ -z "$MATCH_RULE2" ]; then
+  echo -e "\n❌ 提交信息格式错误！请遵循以下任一规范："
+  echo "✔ 规范1（需求编号）：<数字编号>：<需求描述>（例如：60058：项目上提出xxx需求需要修改）"
+  echo "✔ 规范2（类型描述）：<type>: <subject>（例如：fix: 修复原生 JS 事件绑定失效问题，兼容 type:xxx 格式）"
+  echo -e "\n🔧 规范2支持的类型："
+  echo "  feat: 新增功能"
+  echo "  fix: 修复 Bug"
+  echo "  docs: 仅修改文档"
+  echo "  style: 代码格式调整（不影响逻辑）"
+  echo "  refactor: 代码重构（无功能变更）"
+  echo "  test: 新增/修改测试代码"
+  echo "  chore: 杂项（如修改配置）"
+  echo "  perf: 性能优化"
+  echo "  revert: 回滚提交"
+  exit 1
+fi
+
+# --------------------------
+# 校验规则 2：subject 长度不超过 50 字符
+# --------------------------
+SUBJECT=$(echo "$COMMIT_MSG" | cut -d ':' -f 2 | xargs)
+if [ ${#SUBJECT} -gt 200 ]; then
+  echo "❌ 提交信息描述过长（当前 ${#SUBJECT} 字符），请精简到 200 字符以内！"
+  exit 1
+fi
+
+
+echo "✔ 提交信息校验通过！"
+exit 0

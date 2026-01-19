@@ -1,0 +1,87 @@
+#!/bin/sh
+# 企业级原生 JS 代码提交校验钩子
+# 适用场景：原生 JS 项目，无 Node.js/框架依赖
+
+# 错误计数
+ERROR_COUNT=0
+
+# 获取暂存区的 JS 文件
+JS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$')
+
+if [ -z "$JS_FILES" ]; then
+  echo "✅ 无 JS 文件需要校验，跳过代码检查"
+  exit 0
+fi
+
+echo "🔍 开始执行JS 代码校验..."
+
+# --------------------------
+# 校验规则 1：禁止调试代码
+# --------------------------
+echo "1. 检查调试代码（console.log/debugger）..."
+for FILE in $JS_FILES; do
+  if grep -n "console.log" "$FILE"; then
+    echo "❌ [错误] $FILE 包含 console.log 调试代码，请删除！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+  if grep -n "debugger" "$FILE"; then
+    echo "❌ [错误] $FILE 包含 debugger 断点，请删除！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+done
+
+# --------------------------
+# 校验规则 2：禁止空函数
+# --------------------------
+echo "2. 检查空函数..."
+for FILE in $JS_FILES; do
+  if grep -nE "function\s+\w+\s*\(\s*\)\s*\{\s*\}" "$FILE"; then
+    echo "❌ [错误] $FILE 包含空函数，请补充逻辑！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+done
+
+# --------------------------
+# 校验规则 3：禁止未使用变量（基础检测）
+# --------------------------
+echo "3. 检查未使用变量..."
+for FILE in $JS_FILES; do
+  UNUSED=$(grep -nE "var\s+\w+;|let\s+\w+;|const\s+\w+;" "$FILE" | grep -v "=")
+  if [ -n "$UNUSED" ]; then
+    echo "⚠️ [警告] $FILE 可能存在未使用变量："
+    echo "$UNUSED"
+  fi
+done
+
+# --------------------------
+# 校验规则 4：强制文件末尾空行
+# --------------------------
+echo "4. 检查文件末尾空行..."
+for FILE in $JS_FILES; do
+  if [ -n "$(tail -c1 "$FILE")" ]; then
+    echo "❌ [错误] $FILE 文件末尾缺少空行，请添加！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+done
+
+# --------------------------
+# 校验规则 5：禁止 trailing whitespace
+# --------------------------
+echo "5. 检查行尾空格..."
+for FILE in $JS_FILES; do
+  if grep -n "[[:blank:]]$" "$FILE"; then
+    echo "❌ [错误] $FILE 存在行尾空格，请清理！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+done
+
+# --------------------------
+# 最终判断
+# --------------------------
+if [ $ERROR_COUNT -ne 0 ]; then
+  echo "\n❌ 代码校验失败，共发现 $ERROR_COUNT 处错误，请修复后重新提交！"
+  exit 1
+fi
+
+echo "✅ 企业级 JS 代码校验全部通过！"
+exit 0
