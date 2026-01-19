@@ -11,7 +11,7 @@ COMMIT_MSG=$(cat "$COMMIT_MSG_FILE" | tr '　' ' ' | sed -e 's/^[ \t]*//' -e 's/
 
 # 定义双规范的正则表达式（满足其一即可通过）
 # 规范1：公司需求编号格式（数字：描述）【注意：这里是中文冒号】
-RULE1="^[0-9]+：.{1,100}$"
+RULE1="^[0-9]+:.{1,100}$"
 # 规范2：Angular 类型格式（修复 ? 的兼容问题，用 [ ]? 替代）
 VALID_TYPES="feat|fix|docs|style|refactor|test|chore|perf|revert"
 # [ ]? 表示“0 或 1 个半角空格”，兼容 test:xxx 和 test: xxx
