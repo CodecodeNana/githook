@@ -1,30 +1,80 @@
 #!/bin/sh
 # 企业级 Git 提交信息校验钩子
 # 遵循 Angular 规范，适配原生 JS 项目
-# 解决中文/空格兼容问题
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
 # 读取提交信息文件
-COMMIT_MSG_FILE=$1
+COMMIT_MSG_FILE=$1 
 # 用 tr 替换全角空格为半角，再去首尾空白
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE" | tr '　' ' ' | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')
 
-# 定义双规范的正则表达式（满足其一即可通过）
-# 规范1：公司需求编号格式（数字：描述）【注意：这里是中文冒号】
-RULE1="^[0-9]+:.{1,100}$"
-# 规范2：Angular 类型格式（修复 ? 的兼容问题，用 [ ]? 替代）
+# - 中文冒号（唯一需要禁止的字符）：\xef\xbc\x9a 是中文冒号的 UTF-8 编码（避免字符显示问题）
+CHINESE_COLON="："
+# - 英文冒号（任意形态都允许，仅匹配“非中文冒号的冒号”）
+ENGLISH_COLON_PATTERN=":"
+
+# 规范1：数字 + 英文冒号 + 1-100字符描述（不控全半角）
+RULE1="^[0-9]+$ENGLISH_COLON_PATTERN.{1,100}$"
+# 规范2：合法type + 英文冒号 + 非空描述（兼容冒号后有无空格，不控全半角）
 VALID_TYPES="feat|fix|docs|style|refactor|test|chore|perf|revert"
-# [ ]? 表示“0 或 1 个半角空格”，兼容 test:xxx 和 test: xxx
-RULE2="^($VALID_TYPES):[ ]?.+$"
+RULE2="^($VALID_TYPES)$ENGLISH_COLON_PATTERN[ ]?.+$"
+echo "📕 当前提交信息：[$COMMIT_MSG]"
+
+# ====================== 新增：规范1 精准校验逻辑 ======================
+# ====================== 规范1 精准校验（禁止中文冒号，允许任意英文冒号） ======================
+rule1_error=""
+# 1. 优先检查是否包含中文冒号（核心禁止项）
+if echo "$COMMIT_MSG" | grep -q "$CHINESE_COLON"; then
+  rule1_error="使用了中文冒号（：），规范1强制要求使用英文冒号（:，全/半角均可）"
+elif ! echo "$COMMIT_MSG" | grep -q "$ENGLISH_COLON_PATTERN"; then
+  # 2. 检查是否缺少英文冒号
+  rule1_error="缺少英文冒号（:），规范1要求数字和描述之间用英文冒号分隔"
+elif ! echo "$COMMIT_MSG" | grep -qE "^[0-9]+$ENGLISH_COLON_PATTERN"; then
+  # 3. 检查冒号前是否是纯数字
+  rule1_error="英文冒号前不是纯数字（规范1要求开头是纯数字的需求编号）"
+else
+  # 4. 检查描述长度
+  desc_part1=$(echo "$COMMIT_MSG" | sed -e "s/^[0-9]+$ENGLISH_COLON_PATTERN//")
+  if [ -z "$desc_part1" ]; then
+    rule1_error="需求描述不能为空（规范1要求描述长度1-100字符）"
+  elif [ ${#desc_part1} -gt 100 ]; then
+    rule1_error="需求描述过长（规范1要求最多100字符，当前${#desc_part1}字符）"
+  fi
+fi
+
+# ====================== 规范2 精准校验（禁止中文冒号，允许任意英文冒号） ======================
+rule2_error=""
+# 1. 优先检查是否包含中文冒号（核心禁止项）
+if echo "$COMMIT_MSG" | grep -q "$CHINESE_COLON"; then
+  rule2_error="使用了中文冒号（：），规范2强制要求使用英文冒号（:，全/半角均可）"
+elif ! echo "$COMMIT_MSG" | grep -q "$ENGLISH_COLON_PATTERN"; then
+  # 2. 检查是否缺少英文冒号
+  rule2_error="缺少英文冒号（:），规范2要求类型和描述之间用英文冒号分隔"
+else
+  # 拆分type和描述（按第一个英文冒号分割）
+  type_part=$(echo "$COMMIT_MSG" | cut -d"$ENGLISH_COLON_PATTERN" -f1)
+  desc_part2=$(echo "$COMMIT_MSG" | cut -d"$ENGLISH_COLON_PATTERN" -f2 | sed -e 's/^[ ]*//')
+  
+  # 3. 检查type是否合法
+  if ! echo "$type_part" | grep -qE "^($VALID_TYPES)$"; then
+    rule2_error="类型错误（合法类型：$VALID_TYPES），当前类型：[$type_part]"
+  elif [ -z "$desc_part2" ]; then
+    # 4. 检查描述是否为空
+    rule2_error="描述不能为空（规范2要求英文冒号后必须有内容）"
+  fi
+fi
 
 # 校验逻辑（用 grep -E 确保扩展正则生效）
-MATCH_RULE1=$(echo "$COMMIT_MSG" | grep -E "$RULE1")
-MATCH_RULE2=$(echo "$COMMIT_MSG" | grep -E "$RULE2")
+MATCH_RULE1=$(echo "$COMMIT_MSG" | grep -qE "$RULE1" && echo "yes" || echo "no")
+MATCH_RULE2=$(echo "$COMMIT_MSG" | grep -qE "$RULE2" && echo "yes" || echo "no")
 
-if [ -z "$MATCH_RULE1" ] && [ -z "$MATCH_RULE2" ]; then
-  echo -e "\n❌ 提交信息格式错误！请遵循以下任一规范："
-  echo "✔ 规范1（需求编号）：<数字编号>：<需求描述>（例如：60058：项目上提出xxx需求需要修改）"
-  echo "✔ 规范2（类型描述）：<type>: <subject>（例如：fix: 修复原生 JS 事件绑定失效问题，兼容 type:xxx 格式）"
+if [ "$MATCH_RULE1" = "no" ] && [ "$MATCH_RULE2" = "no" ]; then
+  # 新增：输出精准错误原因
+  echo -e "\n❌ 提交信息格式错误！具体原因："
+  echo -e "  🚫 不符合规范1的原因：$rule1_error"
+  echo -e "  🚫 不符合规范2的原因：$rule2_error"
+  # 正确提示
+   echo -e "校验规则详细如下："
+  echo -e "\n规范1（需求编号）：<数字编号>：<需求描述>（例如：60058：项目上提出xxx需求需要修改）"
+  echo -e "规范2（类型描述）：<type>: <subject>（例如：fix: 修复原生 JS 事件绑定失效问题，兼容 type:xxx 格式）"
   echo -e "\n🔧 规范2支持的类型："
   echo "  feat: 新增功能"
   echo "  fix: 修复 Bug"
