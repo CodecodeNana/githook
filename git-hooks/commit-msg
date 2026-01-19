@@ -73,7 +73,7 @@ if [ "$MATCH_RULE1" = "no" ] && [ "$MATCH_RULE2" = "no" ]; then
   echo -e "  🚫 不符合规范2的原因：$rule2_error"
   # 正确提示
    echo -e "校验规则详细如下："
-  echo -e "\n规范1（需求编号）：<数字编号>：<需求描述>（例如：60058：项目上提出xxx需求需要修改）"
+  echo -e "规范1（需求编号）：<数字编号>：<需求描述>（例如：60058：项目上提出xxx需求需要修改）"
   echo -e "规范2（类型描述）：<type>: <subject>（例如：fix: 修复原生 JS 事件绑定失效问题，兼容 type:xxx 格式）"
   echo -e "\n🔧 规范2支持的类型："
   echo "  feat: 新增功能"
