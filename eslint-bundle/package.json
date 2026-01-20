@@ -4,18 +4,21 @@
   "main": "eslint-runner.js",
   "bin": "eslint-runner.js",
   "dependencies": {
-    "eslint": "^8.56.0",
-    "eslint-plugin-jquery": "^1.5.1"
+    "eslint": "^8.56.0"
   },
   "devDependencies": {
+    "eslint-plugin-jquery": "^1.5.1",
     "pkg": "^5.8.1"
   },
   "pkg": {
     "targets": [
       "node16-win32-x64"
     ],
+    
     "outputPath": "../eslintexe",
-    "assets": [],
+    "assets": [
+      "node_modules/eslint-plugin-jquery/**/*" 
+    ],
     "scripts": "eslint-runner.js"
   }
 }

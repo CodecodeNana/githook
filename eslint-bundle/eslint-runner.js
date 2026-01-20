@@ -3,6 +3,8 @@
  * ESLint 独立执行入口（适配原生 JS + jQuery）
  * 特性：1. 内置配置 2. 无外部依赖 3. 输出友好提示
  */
+// 显式引入插件
+require("eslint-plugin-jquery");
 const { ESLint } = require("eslint");
 const fs = require("fs");
 const path = require("path");
@@ -11,7 +13,6 @@ const path = require("path");
 const ESLINT_CONFIG = {
   env: {
     browser: true,    // 支持浏览器环境（window/document）
-    es5: true,        // 适配 ES5（原生 JS/jQuery 项目）
     jquery: true      // 识别 jQuery 全局变量
   },
   globals: {
@@ -69,7 +70,7 @@ async function runEslint() {
   // 3. 初始化 ESLint
   const eslint = new ESLint({
     overrideConfig: ESLINT_CONFIG,
-    useEslintrc: false, // 禁用外部配置，保证独立可执行
+    useEslintrc: true, // 禁用外部配置，保证独立可执行
     fix: false           // 关闭自动修复（如需自动修复改为 true）
   });
 

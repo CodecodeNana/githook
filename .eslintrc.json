@@ -1,0 +1,19 @@
+{
+  "env": {
+    "browser": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 5
+  },
+  "globals": {
+    "jQuery": "readonly",
+    "$": "readonly",
+    "window": "readonly"
+  },
+  "plugins": ["jquery"],
+  "rules": {
+    "no-undef": "error",
+    "eqeqeq": ["error", "always"],
+    "jquery/no-global-ajax": "warn"
+  }
+}

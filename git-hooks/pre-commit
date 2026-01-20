@@ -4,7 +4,9 @@
 
 # 错误计数
 ERROR_COUNT=0
-
+# 获取ESLINT所在路径
+PROJECT_ROOT=$(cd $(dirname $0)/../.. && pwd)
+TOOLS_DIR="$PROJECT_ROOT/eslintexe"
 # 获取暂存区的 JS 文件
 JS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$')
 
@@ -75,6 +77,46 @@ for FILE in $JS_FILES; do
   fi
 done
 
+# --------------------------
+# ESLINT进行代码风格校验
+# --------------------------
+
+# 获取到eslint.exe的路径
+get_eslint_exe(){
+  local exe_path="$TOOLS_DIR/eslint.exe"
+  echo $exe_path
+}
+
+# 执行eslint的二进制文件
+check_eslint(){
+  local eslint_exe=$(get_eslint_exe)
+  if [ ! -f "$eslint_exe" ]; then
+    echo "❌ [错误] eslint.exe 未找到"
+    echo "请执行init-eslint.sh初始化eslint环境"
+    exit 1
+  fi
+}
+# 执行eslint检查
+run_eslint_check(){
+  # 1.检查依赖
+  check_eslint
+  local eslint_exe=$(get_eslint_exe)
+
+  # 2.执行eslint检查
+  echo "🔍 开始执行ESLint检查..."
+  "$eslint_exe" "$JS_FILES"
+
+  if [ $? -ne 0 ]; then
+    echo "❌ [错误] ESLint 检查失败，请检查代码风格！"
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    exit 1
+  else
+    echo "✅ ESLint 检查通过！"
+    exit 0
+  fi
+}
+#========启动校验========
+run_eslint_check
 # --------------------------
 # 最终判断
 # --------------------------
