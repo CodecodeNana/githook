@@ -1,0 +1,41 @@
+# .github/workflows/eslint-check.yml
+# 流程名称：强制ESLint校验（兜底本地Git Hook）
+name: Force ESLint Check
+
+# 触发条件：覆盖所有合入主分支的场景（防止绕过）
+on:
+  # 1. 推送到主分支（master/main）时触发
+  push:
+    branches: [ master, main ]
+  # 2. 提PR到主分支时触发（核心：PR阶段就拦截不合规代码）
+  pull_request:
+    branches: [ master, main ]
+
+# 定义CI任务
+jobs:
+  eslint-validation:
+    # 运行环境：GitHub提供的Ubuntu免费镜像（无需自己搭建服务器）
+    runs-on: ubuntu-latest
+
+    # 任务步骤（核心：拉取代码→装Node→装ESLint→执行校验）
+    steps:
+      # 步骤1：拉取仓库代码到CI环境
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取全量代码，确保校验完整
+
+      # 步骤2：安装Node.js（仅用于运行ESLint，不影响原生项目）
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18  # 稳定版本，适配ESLint所有版本
+          cache: 'npm'      # 缓存npm依赖，加速下次构建
+
+      # 步骤3：安装ESLint及项目依赖（读取package.json）
+      - name: Install dependencies
+        run: npm install  # 仅安装devDependencies中的ESLint
+
+      # 步骤4：执行ESLint全量校验（核心：失败则CI终止，阻断提交）
+      - name: Run ESLint check
+        run: npx eslint . --ext .js  # 校验项目中所有.js文件
