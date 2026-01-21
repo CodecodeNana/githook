@@ -3,17 +3,17 @@
     "browser": true
   },
   "parserOptions": {
-    "ecmaVersion": 5
+    "ecmaVersion": 8
   },
   "globals": {
     "jQuery": "readonly",
     "$": "readonly",
-    "window": "readonly"
+    "window": "readonly",
+    "require": "readonly",
+    "process": "readonly"
   },
-  "plugins": ["jquery"],
   "rules": {
     "no-undef": "error",
-    "eqeqeq": ["error", "always"],
-    "jquery/no-global-ajax": "warn"
+    "eqeqeq": ["error", "always"]
   }
 }

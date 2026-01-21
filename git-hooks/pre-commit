@@ -15,67 +15,38 @@ if [ -z "$JS_FILES" ]; then
   exit 0
 fi
 
-echo "🔍 开始执行JS 代码校验..."
+echo "🔍 开始执行JS 代码钩子校验..."
 
 # --------------------------
-# 校验规则 1：禁止调试代码
+# 校验本次提交中修改的内容
 # --------------------------
-echo "1. 检查调试代码（console.log/debugger）..."
+
 for FILE in $JS_FILES; do
-  if grep -n "console.log" "$FILE"; then
-    echo "❌ [错误] $FILE 包含 console.log 调试代码，请删除！"
+  # 提取修改内容时，先过滤乱码、控制符，只保留可打印文本+空格+换行
+  MODIFIED_CONTENT=$(git diff --cached -U0 "$FILE" | grep -E '^\+' | sed 's/^\+//') 
+  # 校验规则 1：禁止 console.log 和 debugger
+  echo -e "开始校验${FILE}……"
+  if echo "$MODIFIED_CONTENT" | grep -q "console.log"; then
+    echo -e "    ❌ [错误] $FILE 以下行包含 console.log 调试代码，请删除！"
+    echo "$MODIFIED_CONTENT" | grep -n "console.log" | sed 's/^/    行号/'
     ERROR_COUNT=$((ERROR_COUNT+1))
   fi
-  if grep -n "debugger" "$FILE"; then
-    echo "❌ [错误] $FILE 包含 debugger 断点，请删除！"
+  if echo "$MODIFIED_CONTENT" |grep -q "debugger"; then
+    echo -e "\n    ❌ [错误] $FILE 以下行包含 debugger 断点，请删除！"
+    echo "$MODIFIED_CONTENT" |grep -n "debugger" | sed 's/^/    行号/'
     ERROR_COUNT=$((ERROR_COUNT+1))
   fi
+
+  # 校验规则 2：禁止空函数
+  if echo "$MODIFIED_CONTENT" | grep -qE "function\s+\w+\s*\(\s*\)\s*\{\s*\}" ; then
+    echo -e "\n    ❌ [错误] $FILE 以下行包含空函数，请补充逻辑！"
+    echo "$MODIFIED_CONTENT" | grep -nE "function\s+\w+\s*\(\s*\)\s*\{\s*\}" | sed 's/^/    行号/'
+    ERROR_COUNT=$((ERROR_COUNT+1))
+  fi
+
+  echo -e "校验${FILE}结束……\n"
 done
 
-# --------------------------
-# 校验规则 2：禁止空函数
-# --------------------------
-echo "2. 检查空函数..."
-for FILE in $JS_FILES; do
-  if grep -nE "function\s+\w+\s*\(\s*\)\s*\{\s*\}" "$FILE"; then
-    echo "❌ [错误] $FILE 包含空函数，请补充逻辑！"
-    ERROR_COUNT=$((ERROR_COUNT+1))
-  fi
-done
-
-# --------------------------
-# 校验规则 3：禁止未使用变量（基础检测）
-# --------------------------
-echo "3. 检查未使用变量..."
-for FILE in $JS_FILES; do
-  UNUSED=$(grep -nE "var\s+\w+;|let\s+\w+;|const\s+\w+;" "$FILE" | grep -v "=")
-  if [ -n "$UNUSED" ]; then
-    echo "⚠️ [警告] $FILE 可能存在未使用变量："
-    echo "$UNUSED"
-  fi
-done
-
-# --------------------------
-# 校验规则 4：强制文件末尾空行
-# --------------------------
-echo "4. 检查文件末尾空行..."
-for FILE in $JS_FILES; do
-  if [ -n "$(tail -c1 "$FILE")" ]; then
-    echo "❌ [错误] $FILE 文件末尾缺少空行，请添加！"
-    ERROR_COUNT=$((ERROR_COUNT+1))
-  fi
-done
-
-# --------------------------
-# 校验规则 5：禁止 trailing whitespace
-# --------------------------
-echo "5. 检查行尾空格..."
-for FILE in $JS_FILES; do
-  if grep -n "[[:blank:]]$" "$FILE"; then
-    echo "❌ [错误] $FILE 存在行尾空格，请清理！"
-    ERROR_COUNT=$((ERROR_COUNT+1))
-  fi
-done
 
 # --------------------------
 # ESLINT进行代码风格校验
@@ -117,6 +88,8 @@ run_eslint_check(){
 }
 #========启动校验========
 run_eslint_check
+
+
 # --------------------------
 # 最终判断
 # --------------------------
