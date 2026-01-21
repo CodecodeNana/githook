@@ -10,6 +10,7 @@ on:
   # 2. 提PR到主分支时触发（核心：PR阶段就拦截不合规代码）
   pull_request:
     branches: [ master, main ]
+   workflow_dispatch: 
 
 # 定义CI任务
 jobs:
